@@ -94,10 +94,16 @@ if st.session_state.current_chat_name:
                         st.rerun()
                     except: pass
             except Exception as e:
-                if "429" in str(e):
-                    st.warning("⚠️ Quota atteint pour aujourd'hui. Google limite les messages gratuits. Réessaye demain ou change de clé API !")
+                # --- MAQUILLAGE DES ERREURS ---
+                error_msg = str(e)
+                if "429" in error_msg:
+                    st.warning("✨ Ma source d'énergie est temporairement épuisée. Prenons un instant de silence... (Quota journalier atteint, reviens plus tard !)")
+                elif "404" in error_msg or "not found" in error_msg.lower():
+                    st.error("☁️ La connexion avec le nuage de sagesse a été interrompue. Je tente de rétablir le lien.")
+                elif "quota" in error_msg.lower():
+                    st.warning("⏳ Trop de pensées à la fois ! Mon esprit doit se reposer quelques secondes avant de te répondre.")
                 else:
-                    st.error(f"Une petite interférence : {e}")
+                    # Message générique pour ne pas montrer le code
+                    st.error("🕊️ Une petite perturbation dans le flux spirituel. Réessaye dans un instant.")
 else:
     st.info("👋 Bienvenue ! Crée une 'Nouvelle Discussion' à gauche pour commencer.")
-    # On a enlevé l'image de la mosquée ici !
