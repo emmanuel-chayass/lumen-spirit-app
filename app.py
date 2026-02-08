@@ -10,8 +10,17 @@ st.set_page_config(page_title="Lumen AI", page_icon="📖", layout="wide")
 
 @st.cache_resource
 def get_working_model():
-    # On reste sur flash pour la rapidité du renommage
-    return "models/gemini-1.5-flash"
+    # Détection dynamique pour éviter l'erreur 404
+    try:
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        # On cherche un modèle flash ou pro dans la liste réelle
+        for target in ["models/gemini-1.5-flash-latest", "models/gemini-1.5-flash", "models/gemini-pro"]:
+            if target in available_models:
+                return target
+        return available_models[0] if available_models else "models/gemini-1.5-flash"
+    except Exception:
+        # Fallback si la liste échoue
+        return "models/gemini-1.5-flash"
 
 MODEL_NAME = get_working_model()
 
@@ -34,12 +43,13 @@ with st.sidebar:
     st.title("📚 Tes Échanges")
     
     if st.button("➕ Nouvelle Discussion", use_container_width=True):
-        new_id = f"Discussion {len(st.session_state.all_chats) + 1}"
-        st.session_state.all_chats[new_id] = {
+        # On utilise un ID temporaire unique
+        temp_id = f"Discussion {len(st.session_state.all_chats) + 1}"
+        st.session_state.all_chats[temp_id] = {
             "messages": [{"role": "assistant", "content": "Paix sur toi mon ami ! De quoi veux-tu discuter aujourd'hui ?"}],
             "chat_obj": genai.GenerativeModel(MODEL_NAME, system_instruction=SYSTEM_PROMPT).start_chat(history=[])
         }
-        st.session_state.current_chat_name = new_id
+        st.session_state.current_chat_name = temp_id
         st.rerun()
 
     st.divider()
@@ -56,7 +66,7 @@ if st.session_state.current_chat_name:
     chat_data = st.session_state.all_chats[current_name]
     
     st.title(f"📖 {current_name}")
-    st.caption("Lumen AI | Ton guide spirituel")
+    st.caption(f"Lumen AI | Modèle: {MODEL_NAME.split('/')[-1]}")
 
     # Affichage de l'historique
     for msg in chat_data["messages"]:
@@ -79,17 +89,22 @@ if st.session_state.current_chat_name:
                 chat_data["messages"].append({"role": "assistant", "content": answer})
                 
                 # --- LOGIQUE DE RENOMMAGE AUTOMATIQUE ---
-                if current_name.startswith("Discussion"):
-                    # On demande à l'IA de résumer en 2-3 mots
-                    name_gen_prompt = f"Donne un titre très court (max 3 mots) qui résume cette question : '{prompt}'. Réponds uniquement le titre, sans ponctuation."
-                    name_res = genai.GenerativeModel(MODEL_NAME).generate_content(name_gen_prompt)
-                    new_name = name_res.text.strip()
+                # On renomme si le nom actuel contient encore "Discussion" (nom générique)
+                if "Discussion" in current_name:
+                    name_gen_prompt = f"Donne un titre très court (max 3 mots) sans ponctuation pour résumer ce sujet : '{prompt}'"
+                    # On utilise une instance séparée pour ne pas polluer l'historique du chat actuel
+                    title_model = genai.GenerativeModel(MODEL_NAME)
+                    name_res = title_model.generate_content(name_gen_prompt)
+                    new_name = name_res.text.strip().replace('"', '').replace('.', '')
                     
-                    # On s'assure que le nom est unique
+                    if not new_name:
+                        new_name = prompt[:15] + "..."
+                    
+                    # Sécurité : éviter les doublons
                     if new_name in st.session_state.all_chats:
                         new_name = f"{new_name} ({len(st.session_state.all_chats)})"
                     
-                    # On bascule les données vers le nouveau titre
+                    # Transfert des données vers la nouvelle clé
                     st.session_state.all_chats[new_name] = st.session_state.all_chats.pop(current_name)
                     st.session_state.current_chat_name = new_name
                     st.rerun()
@@ -98,5 +113,5 @@ if st.session_state.current_chat_name:
                 st.error(f"Une petite interférence : {e}")
 else:
     # Page d'accueil quand aucun chat n'est sélectionné
-    st.info("👋 Bienvenue mon ami ! Clique sur 'Nouvelle Discussion' dans la barre à gauche pour commencer notre voyage spirituel.")
+    st.info("👋 Bienvenue mon ami ! Clique sur 'Nouvelle Discussion' à gauche pour commencer.")
     st.image("https://images.unsplash.com/photo-1519817650390-64a93db51149?q=80&w=1000&auto=format&fit=crop", caption="La connaissance est une lumière.")
