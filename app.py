@@ -10,17 +10,9 @@ st.set_page_config(page_title="Lumen AI", page_icon="📖", layout="wide")
 
 @st.cache_resource
 def get_working_model():
-    # Détection dynamique pour éviter l'erreur 404
-    try:
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        # On cherche un modèle flash ou pro dans la liste réelle
-        for target in ["models/gemini-1.5-flash-latest", "models/gemini-1.5-flash", "models/gemini-pro"]:
-            if target in available_models:
-                return target
-        return available_models[0] if available_models else "models/gemini-1.5-flash"
-    except Exception:
-        # Fallback si la liste échoue
-        return "models/gemini-1.5-flash"
+    # On essaie d'abord les noms les plus robustes
+    # 'gemini-1.5-flash-latest' est souvent le plus stable sur v1beta
+    return "gemini-1.5-flash-latest"
 
 MODEL_NAME = get_working_model()
 
@@ -66,7 +58,7 @@ if st.session_state.current_chat_name:
     chat_data = st.session_state.all_chats[current_name]
     
     st.title(f"📖 {current_name}")
-    st.caption(f"Lumen AI | Modèle: {MODEL_NAME.split('/')[-1]}")
+    st.caption(f"Lumen AI | Mode Sagesse Activé")
 
     # Affichage de l'historique
     for msg in chat_data["messages"]:
@@ -83,6 +75,7 @@ if st.session_state.current_chat_name:
         # 2. Réponse de Lumen
         with st.chat_message("assistant"):
             try:
+                # Utilisation de generateContent directement pour plus de stabilité si nécessaire
                 response = chat_data["chat_obj"].send_message(prompt)
                 answer = response.text
                 st.markdown(answer)
@@ -91,23 +84,26 @@ if st.session_state.current_chat_name:
                 # --- LOGIQUE DE RENOMMAGE AUTOMATIQUE ---
                 # On renomme si le nom actuel contient encore "Discussion" (nom générique)
                 if "Discussion" in current_name:
-                    name_gen_prompt = f"Donne un titre très court (max 3 mots) sans ponctuation pour résumer ce sujet : '{prompt}'"
-                    # On utilise une instance séparée pour ne pas polluer l'historique du chat actuel
-                    title_model = genai.GenerativeModel(MODEL_NAME)
-                    name_res = title_model.generate_content(name_gen_prompt)
-                    new_name = name_res.text.strip().replace('"', '').replace('.', '')
-                    
-                    if not new_name:
-                        new_name = prompt[:15] + "..."
-                    
-                    # Sécurité : éviter les doublons
-                    if new_name in st.session_state.all_chats:
-                        new_name = f"{new_name} ({len(st.session_state.all_chats)})"
-                    
-                    # Transfert des données vers la nouvelle clé
-                    st.session_state.all_chats[new_name] = st.session_state.all_chats.pop(current_name)
-                    st.session_state.current_chat_name = new_name
-                    st.rerun()
+                    try:
+                        name_gen_prompt = f"Donne un titre très court (max 3 mots) sans ponctuation pour résumer ce sujet : '{prompt}'"
+                        title_model = genai.GenerativeModel(MODEL_NAME)
+                        name_res = title_model.generate_content(name_gen_prompt)
+                        new_name = name_res.text.strip().replace('"', '').replace('.', '').replace('*', '')
+                        
+                        if not new_name or len(new_name) > 30:
+                            new_name = prompt[:15] + "..."
+                        
+                        # Sécurité : éviter les doublons
+                        if new_name in st.session_state.all_chats:
+                            new_name = f"{new_name} ({len(st.session_state.all_chats)})"
+                        
+                        # Transfert des données vers la nouvelle clé
+                        st.session_state.all_chats[new_name] = st.session_state.all_chats.pop(current_name)
+                        st.session_state.current_chat_name = new_name
+                        st.rerun()
+                    except:
+                        # Si le renommage échoue, on garde le nom actuel pour ne pas bloquer le chat
+                        pass
                     
             except Exception as e:
                 st.error(f"Une petite interférence : {e}")
