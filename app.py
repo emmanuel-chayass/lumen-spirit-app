@@ -26,6 +26,7 @@ if not MODEL_NAME:
     st.error("Aucun modèle trouvé. Vérifie ta clé API.")
     st.stop()
 
+st.caption("Lumen v1.0 | Connecté au Nuage de Sagesse")
 
 # 2. INITIALISER LE MODÈLE
 system_prompt = """
