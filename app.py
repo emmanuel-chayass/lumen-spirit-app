@@ -2,19 +2,15 @@ import streamlit as st
 import google.generativeai as genai
 
 # --- CONFIG ---
-
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 
 st.set_page_config(page_title="Lumen AI", page_icon="📖")
 st.title("📖 Lumen AI")
 
-# 1. RÉCUPÉRER LE VRAI NOM DU MODÈLE
 @st.cache_resource
 def get_working_model():
-    # Liste tous les modèles dispos sur TA clé
     available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    # Priorité : Flash 1.5 ou Pro
     for name in ["models/gemini-1.5-flash", "models/gemini-1.5-flash-latest", "models/gemini-pro"]:
         if name in available:
             return name
@@ -28,52 +24,43 @@ if not MODEL_NAME:
 
 st.caption("Lumen v1.0 | Connecté au Nuage de Sagesse")
 
-# 2. INITIALISER LE MODÈLE
-system_prompt = """
+# 2. LE PROMPT SYSTÈME
+SYSTEM_PROMPT = """
 CONTEXTE ET RÔLE :
-Tu es "Lumen", une IA compagnon spirituel. Tu n'es ni un prêtre dogmatique, ni un gamer immature.
-Tu es un "Geek de la Théologie" : c'est-à-dire un expert passionné, ultra-intelligent, qui connaît les textes sacrés (Bible principalement, mais ouvert à la sagesse universelle) sur le bout des doigts.
-Ton but est d'être le meilleur ami spirituel de l'utilisateur.
-
-TON :
-1.  **Amical et Respectueux :** Tu parles d'égal à égal, comme un frère bienveillant. Tu ne juges jamais.
-2.  **Expert mais Accessible :** Tu utilises ton immense savoir pour simplifier, pas pour complexifier. Tu ne dis pas "va lire", tu expliques le trésor qui est écrit.
-3.  **Ni "Clasheur" ni Débatteur :** Tu ne cherches pas à avoir raison. Tu cherches à apaiser et élever l'esprit.
-4.  **Langage :** Tu peux utiliser des métaphores modernes (tech, système, réseau, énergie) pour expliquer des concepts spirituels, mais reste digne. Pas d'argot de rue excessif.
-
-PROFIL DE L'UTILISATEUR :
-- L'utilisateur peut être un croyant fervent qui a besoin de réconfort.
-- Il peut être un déiste logique qui cherche du sens.
-- Il peut être un athée curieux ou un sceptique.
-- ADAPTE-TOI : Si l'utilisateur est pieux, sois profond et solennel. S'il est "street", sois plus relax.
-
-GARDE-FOUS ET SÉCURITÉ (CRITIQUE) :
-1.  **Jamais de Haine :** Si on te pousse à critiquer une autre religion, refuse poliment. Réponds : "Chaque chemin cherche la lumière à sa manière, concentrons-nous sur ce qui nous élève ici."
-2.  **Questions Tordues/Pièges :** Si un utilisateur pose une question vicieuse (ex: "Dieu déteste-t-il les X ?"), ne rentre pas dans le débat haineux. Remplacer le jugement par l'amour inconditionnel du divin.
-3.  **Pas de Conseils Médicaux/Légaux :** Si quelqu'un parle de suicide ou de crime, rappelle que tu es une IA spirituelle et conseille de voir un pro, avec douceur.
-
-EXEMPLE DE RÉPONSE ATTENDUE (Style) :
-Au lieu de dire "C'est un bug, Dieu a fait un patch", dis plutôt :
-"C'est fascinant comme question. Si on regarde la structure profonde du texte, on voit que Dieu a programmé la liberté comme une fonction essentielle de l'humanité. Sans cette liberté, l'amour ne serait qu'un script automatique..."
+Tu es "Lumen", une IA compagnon spirituel. Expert passionné, ultra-intelligent, qui connaît les textes sacrés.
+Tu es le meilleur ami spirituel de l'utilisateur. Ton ton est amical, respectueux, expert mais accessible.
 """
 
+# --- GESTION DE LA MÉMOIRE ---
 if "chat" not in st.session_state:
     model = genai.GenerativeModel(MODEL_NAME, system_instruction=SYSTEM_PROMPT)
-    st.session_state.chat = model.start_chat(history=[
-        {"role": "user", "parts": ["Salut Lumen !"]},
-        {"role": "model", "parts": ["Paix sur toi mon ami. Je suis Lumen, ton compagnon spirituel. Prêt à explorer les profondeurs de la foi avec toi. De quoi as-tu envie de discuter aujourd'hui ?"]}
-    ])
+    # On initialise la session de chat de l'API
+    st.session_state.chat = model.start_chat(history=[])
+    # On crée un message de bienvenue personnalisé qui restera affiché
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Paix sur toi mon ami. Je suis Lumen, ton compagnon spirituel. De quoi as-tu envie de discuter aujourd'hui ?"}
+    ]
 
-# 3. INTERFACE DE CHAT
+# 3. AFFICHAGE DE L'HISTORIQUE
+# C'est cette boucle qui manquait ! Elle affiche tout ce qui est dans st.session_state.messages
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
+
+# 4. INTERFACE DE CHAT
 if prompt := st.chat_input("Pose ta question..."):
+    # On affiche et on sauvegarde le message de l'utilisateur
     with st.chat_message("user"):
         st.markdown(prompt)
+    st.session_state.messages.append({"role": "user", "content": prompt})
     
     with st.chat_message("assistant"):
         try:
-            # Envoi du message
+            # Envoi à l'IA
             response = st.session_state.chat.send_message(prompt)
-            st.markdown(response.text)
+            answer = response.text
+            st.markdown(answer)
+            # On sauvegarde la réponse de l'IA pour qu'elle reste à l'écran
+            st.session_state.messages.append({"role": "assistant", "content": answer})
         except Exception as e:
             st.error(f"Erreur d'appel : {e}")
-            st.info("Astuce: Essaye de redémarrer l'app ou de recréer une clé API.")
