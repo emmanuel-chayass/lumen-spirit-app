@@ -6,7 +6,7 @@ import google.generativeai as genai
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 
-st.set_page_config(page_title="IA Divine", page_icon="📖")
+st.set_page_config(page_title="Lumen AI", page_icon="📖")
 st.title("📖 IA Divine")
 
 # 1. RÉCUPÉRER LE VRAI NOM DU MODÈLE
