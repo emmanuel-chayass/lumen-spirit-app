@@ -2,7 +2,8 @@ import streamlit as st
 import google.generativeai as genai
 
 # --- CONFIG ---
-API_KEY = "AIzaSyDWNakHPly0BqCEqGg2p8kjNMp5_6OYw3A" # <--- TA CLÉ ICI
+
+API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 
 st.set_page_config(page_title="IA Divine", page_icon="📖")
