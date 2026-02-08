@@ -1,66 +1,83 @@
 import streamlit as st
 import google.generativeai as genai
 
-# --- 1. CONFIGURATION ---
+# --- 1. CONFIG ---
 API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 
-st.set_page_config(page_title="Lumen AI", page_icon="📖")
+st.set_page_config(page_title="Lumen AI", page_icon="📖", layout="wide")
 
-# --- 2. INITIALISATION DE LA MÉMOIRE (EN PREMIER !) ---
-# On vérifie si "messages" existe, sinon on le crée direct
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Paix sur toi mon ami. Je suis Lumen, ton compagnon spirituel. De quoi as-tu envie de discuter aujourd'hui ?"}
-    ]
-
-# --- 3. RÉCUPÉRER LE MODÈLE ---
 @st.cache_resource
 def get_working_model():
-    try:
-        available = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        for name in ["models/gemini-1.5-flash", "models/gemini-1.5-flash-latest", "models/gemini-pro"]:
-            if name in available: return name
-        return available[0] if available else "models/gemini-1.5-flash"
-    except:
-        return "models/gemini-1.5-flash"
+    return "models/gemini-1.5-flash"
 
 MODEL_NAME = get_working_model()
+SYSTEM_PROMPT = "Tu es Lumen, un expert théologique geek et amical. Ton but est d'aider spirituellement l'utilisateur."
 
-# --- 4. INITIALISATION DU CHAT API ---
-if "chat" not in st.session_state:
-    system_prompt = "Tu es Lumen, un expert théologique geek, amical et ultra-intelligent. Ton but est d'aider spirituellement l'utilisateur avec bienveillance."
-    model = genai.GenerativeModel(MODEL_NAME, system_instruction=system_prompt)
-    st.session_state.chat = model.start_chat(history=[])
+# --- 2. GESTION DU MULTI-CHAT ---
+# Initialisation du dictionnaire des conversations
+if "all_chats" not in st.session_state:
+    st.session_state.all_chats = {} # Format: {"Nom du chat": {"messages": [], "chat_obj": obj}}
 
-# --- 5. INTERFACE ---
-st.title("📖 Lumen AI")
-st.caption("Lumen v1.0 | Connecté au Nuage de Sagesse")
+# Initialisation du chat actuel
+if "current_chat_name" not in st.session_state:
+    st.session_state.current_chat_name = None
 
-# Bouton pour effacer dans la barre latérale
-if st.sidebar.button("🗑️ Effacer la discussion"):
-    st.session_state.messages = [{"role": "assistant", "content": "Paix sur toi ! On recommence à zéro. De quoi veux-tu parler ?"}]
-    st.session_state.chat = genai.GenerativeModel(MODEL_NAME, system_instruction="Tu es Lumen...").start_chat(history=[])
-    st.rerun()
-
-# AFFICHAGE DE L'HISTORIQUE
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-# ZONE DE SAISIE
-if prompt := st.chat_input("Pose ta question..."):
-    # Affichage utilisateur
-    with st.chat_message("user"):
-        st.markdown(prompt)
-    st.session_state.messages.append({"role": "user", "content": prompt})
+# --- 3. BARRE LATÉRALE (SIDEBAR) ---
+with st.sidebar:
+    st.title("📚 Tes Échanges")
     
-    # Réponse de l'IA
-    with st.chat_message("assistant"):
-        try:
-            response = st.session_state.chat.send_message(prompt)
-            answer = response.text
-            st.markdown(answer)
-            st.session_state.messages.append({"role": "assistant", "content": answer})
-        except Exception as e:
-            st.error(f"Erreur : {e}")
+    if st.button("➕ Nouvelle Discussion", use_container_width=True):
+        new_id = f"Discussion {len(st.session_state.all_chats) + 1}"
+        st.session_state.all_chats[new_id] = {
+            "messages": [{"role": "assistant", "content": "Paix sur toi ! Prêt pour une nouvelle exploration ?"}],
+            "chat_obj": genai.GenerativeModel(MODEL_NAME, system_instruction=SYSTEM_PROMPT).start_chat(history=[])
+        }
+        st.session_state.current_chat_name = new_id
+        st.rerun()
+
+    st.divider()
+    
+    # Liste des conversations existantes
+    for chat_name in list(st.session_state.all_chats.keys()):
+        if st.button(chat_name, use_container_width=True):
+            st.session_state.current_chat_name = chat_name
+            st.rerun()
+
+# --- 4. AFFICHAGE DU CHAT SÉLECTIONNÉ ---
+if st.session_state.current_chat_name:
+    current_name = st.session_state.current_chat_name
+    chat_data = st.session_state.all_chats[current_name]
+    
+    st.title(f"📖 {current_name}")
+    st.caption("Lumen AI | Ton guide spirituel")
+
+    # Affichage de l'historique du chat sélectionné
+    for msg in chat_data["messages"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # Zone de saisie
+    if prompt := st.chat_input("Écris ici..."):
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        chat_data["messages"].append({"role": "user", "content": prompt})
+
+        with st.chat_message("assistant"):
+            try:
+                response = chat_data["chat_obj"].send_message(prompt)
+                answer = response.text
+                st.markdown(answer)
+                chat_data["messages"].append({"role": "assistant", "content": answer})
+                
+                # Optionnel : Renommer le chat automatiquement après le premier message
+                if current_name.startswith("Discussion"):
+                    new_name = prompt[:20] + "..." if len(prompt) > 20 else prompt
+                    st.session_state.all_chats[new_name] = st.session_state.all_chats.pop(current_name)
+                    st.session_state.current_chat_name = new_name
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"Erreur : {e}")
+else:
+    st.info("👋 Clique sur 'Nouvelle Discussion' à gauche pour commencer à parler avec Lumen.")
