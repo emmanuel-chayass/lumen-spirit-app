@@ -58,12 +58,10 @@ Au lieu de dire "C'est un bug, Dieu a fait un patch", dis plutôt :
 """
 
 if "chat" not in st.session_state:
-    # On crée le modèle
-    model = genai.GenerativeModel(model_name=MODEL_NAME)
-    # On commence avec l'instruction système direct dans l'historique pour éviter les bugs
+    model = genai.GenerativeModel(MODEL_NAME, system_instruction=SYSTEM_PROMPT)
     st.session_state.chat = model.start_chat(history=[
-        {"role": "user", "parts": [f"Instruction: {system_prompt}"]},
-        {"role": "model", "parts": ["Je suis prêt à guider les âmes avec sagesse."]}
+        {"role": "user", "parts": ["Salut Lumen !"]},
+        {"role": "model", "parts": ["Paix sur toi mon ami. Je suis Lumen, ton compagnon spirituel. Prêt à explorer les profondeurs de la foi avec toi. De quoi as-tu envie de discuter aujourd'hui ?"]}
     ])
 
 # 3. INTERFACE DE CHAT
