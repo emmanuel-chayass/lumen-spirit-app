@@ -7,7 +7,7 @@ API_KEY = st.secrets["GEMINI_API_KEY"]
 genai.configure(api_key=API_KEY)
 
 st.set_page_config(page_title="Lumen AI", page_icon="📖")
-st.title("📖 IA Divine")
+st.title("📖 Lumen AI")
 
 # 1. RÉCUPÉRER LE VRAI NOM DU MODÈLE
 @st.cache_resource
