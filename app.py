@@ -26,7 +26,6 @@ if not MODEL_NAME:
     st.error("Aucun modèle trouvé. Vérifie ta clé API.")
     st.stop()
 
-st.write(f"✅ Connecté via : `{MODEL_NAME}`")
 
 # 2. INITIALISER LE MODÈLE
 system_prompt = """
