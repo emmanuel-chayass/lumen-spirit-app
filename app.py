@@ -13,7 +13,7 @@ st.set_page_config(page_title="Lumen AI", page_icon="📖", layout="wide")
 def get_working_model():
     # Utilisation du modèle de dernière génération comme suggéré
     # gemini-2.0-flash est actuellement le plus rapide et performant
-    return "gemini-2.0-flash"
+   return "gemini-1.5-flash"
 
 MODEL_NAME = get_working_model()
 
