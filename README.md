@@ -1,1 +1,0 @@
-# lumen-spirit-app
